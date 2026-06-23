@@ -16,6 +16,7 @@ dependencies = [
     "connected-components-3d",
     "cmocean",
     "nbmorph",
+    "caveclient",
 ]
 name = "EMIMesh"
 version = "1.0.0.dev0"
