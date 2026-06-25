@@ -4,6 +4,7 @@ from emimesh.utils import np2pv
 from pathlib import Path
 import argparse
 from emimesh.download_data import download_webknossos, download_cloudvolume
+from emimesh.cave_query import get_cell_info
 
 def main():
     parser = argparse.ArgumentParser()
@@ -29,19 +30,72 @@ def main():
     parser.add_argument(
         "--output", help="output filename", type=str, default="data.xdmf"
     )
+    parser.add_argument(
+        "--cell_table_name",
+        help="name of the table to query for cell types",
+        type=str,
+        default="aibs_metamodel_celltypes_v661",
+    )
+    parser.add_argument(
+        "--cell_type",
+        help="cell type to download (optional, will download a single cell of this type)\nAvailable types: neuron, astrocyte, microglia, oligo, pericyte, OPC",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--cell_idx",
+        help="index of the cell type from table to download (optional) ",
+        type=int,
+        default=0,
+    )
+    parser.add_argument(
+        "--cell_padding",
+        help="padding around the cell skeleton bounding box in voxels (optional, default=100)",
+        type=int,
+        default=100,
+    )
+    parser.add_argument(
+        "--cell_max_size",
+        help="max size of the cell bounding box in voxels (optional, default=1000)",
+        type=int,
+        default=1000,
+    )
 
     args = parser.parse_args()
 
-    position = args.position.split("-")
-    try:
-        size = [int(args.size)] * 3
-    except ValueError:
-        size = [int(s) for s in args.size.split("-")]
+    if args.cell_type is not None:
+        # Check if cloudvolume is available
+        try:
+            import cloudvolume
+        except ImportError:
+            raise ImportError(
+                "cloudvolume is required for downloading specific cell types. Please install it with 'pip install cloud-volume'."
+            )
+        
+        cell_id, bbox = get_cell_info(
+            table_name=args.cell_table_name,
+            cloud_path=args.cloudpath,
+            mip=args.mip,
+            cell_type=args.cell_type,
+            idx=args.cell_idx,
+            padding_voxels=args.cell_padding,
+            max_size_voxels=args.cell_max_size,
+        )
 
-    try:
-        img,res = download_cloudvolume(args.cloudpath, args.mip, position, size)
-    except:
-        img,res = download_webknossos(args.cloudpath, args.mip, position, size)
+        img, res = download_cloudvolume(args.cloudpath, args.mip, None, None, cell_id_bbox=(cell_id, bbox))
+        # img = img.astype("uint64") * cell_id # Maintain same setup as other code
+
+    else:
+        position = args.position.split("-")
+        try:
+            size = [int(args.size)] * 3
+        except ValueError:
+            size = [int(s) for s in args.size.split("-")]
+
+        try:
+            img,res = download_cloudvolume(args.cloudpath, args.mip, position, size)
+        except:
+            img,res = download_webknossos(args.cloudpath, args.mip, position, size)
         
     print(res)
     data = np2pv(img, res)

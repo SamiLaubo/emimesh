@@ -1,7 +1,13 @@
-from caveclient import CAVEclient
+import numpy as np
 import pandas as pd
+from pathlib import Path
+from caveclient import CAVEclient
+from cloudvolume import CloudVolume, Bbox
 
-def get_cell_types(table_name="aibs_metamodel_celltypes_v661"):
+from emimesh.utils import np2pv
+from emimesh.download_data import download_webknossos, download_cloudvolume
+
+def get_cell_type_table(table_name="aibs_metamodel_celltypes_v661"):
     """
     Query cell types using CAVEclient and add is_neuron column.
     """
@@ -10,9 +16,15 @@ def get_cell_types(table_name="aibs_metamodel_celltypes_v661"):
 
     # Query the specified table
     try:
-        df = client.materialize.query_table(table_name, select_columns=['id', 'pt_position', 'classification_system', 'cell_type'])
+        df = client.materialize.query_table(
+            table_name, 
+            select_columns=['pt_root_id', 'pt_position', 'classification_system', 'cell_type']
+            # select_column_map={
+            #     table_name: ['pt_root_id', 'pt_position', 'classification_system', 'cell_type']
+            # }
+        )
 
-        # Create a new column 'cell_type_basic'
+        # Create a new column with neuron, astrocyte, ...
         def classify(row):
             if row['classification_system'] != 'nonneuron':
                 return 'neuron'
@@ -26,16 +38,161 @@ def get_cell_types(table_name="aibs_metamodel_celltypes_v661"):
         print(f"Error querying table {table_name}: {e}")
         return None
 
+def filter_df_by_bbox(df, cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg"):
+    """
+    Filters a CAVEclient dataframe, removing rows where 'pt_position' 
+    is outside the specified bounding box of the cloud volume.
+    Because segmentation data is a subset of the full volume.
+    
+    Args:
+        df (pd.DataFrame): The dataframe containing a 'pt_position' column.
+        cloud_path (str): The path to the cloud volume.
+        
+    Returns:
+        pd.DataFrame: A new dataframe containing only the rows within the bounding box.
+    """
+    if 'pt_position' not in df.columns:
+        raise ValueError("Dataframe must contain a 'pt_position' column.")
+
+    # Convert the list of coordinates in 'pt_position' into a 2D numpy array
+    # Shape will be (N, 3) where N is the number of rows
+    coords = np.array(df['pt_position'].tolist())
+    
+    # Extract minimum and maximum points from the Bbox
+    bbox = CloudVolume(cloud_path, use_https=True, mip=0, bounded=True).bounds
+    print(f"Cloud volume bounding box: {bbox}")
+    min_pt = bbox.minpt
+    max_pt = bbox.maxpt
+    
+    # Create boolean masks for X, Y, and Z axes
+    in_x = (coords[:, 0] >= min_pt[0]) & (coords[:, 0] <= max_pt[0])
+    in_y = (coords[:, 1] >= min_pt[1]) & (coords[:, 1] <= max_pt[1])
+    in_z = (coords[:, 2] >= min_pt[2]) & (coords[:, 2] <= max_pt[2])
+    
+    # Combine masks to find points that satisfy all three conditions
+    inside_mask = in_x & in_y & in_z
+    
+    # Return the filtered dataframe, resetting the index for cleanliness
+    return df[inside_mask].reset_index(drop=True)
+    
+def skeleton_bounding_box(cell_id, cloud_path="minnie65_public", padding_voxels=10):
+    """
+    Download the skeleton for a given cell ID and create a bounding box.
+    See: https://tutorial.microns-explorer.org/quickstart_notebooks/07-cave-download-skeleton.html
+    """
+
+    # Download the skeleton for the given cell ID
+    client = CAVEclient(cloud_path)
+    print("Downloading skeleton for cell ID:", cell_id)
+    dict = client.skeleton.get_skeleton(cell_id, output_format='dict') 
+    vertices = dict["vertices"]
+
+    # nm to voxel
+    resolution = np.array(client.info.viewer_resolution())
+    vertices_voxels = vertices / resolution
+    
+    # Find the minimum and maximum coordinates across all X, Y, Z vertices
+    min_coords = np.floor(np.min(vertices_voxels, axis=0)).astype(int)
+    max_coords = np.ceil(np.max(vertices_voxels, axis=0)).astype(int)
+    
+    # Add padding to capture the whole cell volume safely
+    min_coords -= padding_voxels
+    max_coords += padding_voxels
+
+    # Create the Bounding Box
+    bbox = Bbox(min_coords, max_coords, unit="vx")
+    
+    return bbox
+
+def get_valid_bbox(
+        cell_id, 
+        cell_center, 
+        padding_voxels=10, 
+        max_size_voxels=1000,
+        cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg"
+    ):
+
+    bbox_skeleton = skeleton_bounding_box(cell_id, padding_voxels=padding_voxels)
+
+    # Bbox max size around cell center
+    bbox_centered_max = Bbox(cell_center - max_size_voxels // 2, cell_center + max_size_voxels // 2, unit="vx")
+
+    # Bbox for segmentation data
+    bbox_seg = CloudVolume(cloud_path, use_https=True, mip=0, bounded=True).bounds
+
+    # Intersection of the three bounding boxes to ensure we stay within the segmentation data bounds
+    bbox_skeleton_max = Bbox.intersection(bbox_skeleton, bbox_centered_max)
+    bbox_final = Bbox.intersection(bbox_skeleton_max, bbox_seg)
+
+    print(f"\nCalculated Bounding Box (mip=0 voxels): {bbox_final}")
+    print(f"Bounding Box Volume Size (x,y,z): {bbox_final.size3()}")
+
+    return bbox_final
+
+
+def get_cell_info(
+        table_name="aibs_metamodel_celltypes_v661",
+        cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg",
+        mip=0,
+        cell_type="neuron", 
+        idx=0, 
+        padding_voxels=100, 
+        max_size_voxels=1000,
+    ):
+    """
+    Get information about a specific cell from the specified table.
+    """
+    # Get the cell type table
+    df = get_cell_type_table(table_name)
+
+    # Filter the dataframe for out of bounds of cloud volume bounds
+    df = filter_df_by_bbox(df, cloud_path)
+
+    # Extract one cell
+    cell_df = df[df['cell_type_basic'] == cell_type]
+    if idx >= len(cell_df):
+        raise IndexError(f"Index {idx} is out of bounds for cell type '{cell_type}' with {len(cell_df)} entries.")
+
+    # Get info for one cell
+    cell_id = cell_df["pt_root_id"].values[idx]
+
+    bbox = get_valid_bbox(
+        cell_id, 
+        cell_df["pt_position"].values[idx], 
+        padding_voxels=padding_voxels, 
+        max_size_voxels=max_size_voxels,
+        cloud_path=cloud_path
+    )
+
+
+    # bbox = skeleton_bounding_box(cell_id, padding_voxels=padding_voxels, max_size_voxels=max_size_voxels)
+
+    # Convert bounds to correct mip
+    cv = CloudVolume(cloud_path, use_https=True, mip=0, bounded=True)
+    print(bbox)
+    bbox = cv.bbox_to_mip(bbox, mip=0, to_mip=mip)
+    print(bbox)
+
+    # Divide x and y by 2, not in z direction
+    # bbox = Bbox((bbox.minpt[0] // 2, bbox.minpt[1] // 2, bbox.minpt[2]), (bbox.maxpt[0] // 2, bbox.maxpt[1] // 2, bbox.maxpt[2]), unit="vx")
+
+    
+    return cell_id, bbox
+    
+
 if __name__ == "__main__":
-    # Example usage
-    df = get_cell_types()
+    df = get_cell_type_table()
+    print(df.shape)
+    df = filter_df_by_bbox(df)
+    print(df.shape)
     if df is not None:
         pd.set_option('display.max_columns', None)
         pd.set_option('display.width', None)
 
         print(df.head())
-        # Example: count by cell type
-        print(df["cell_type"].value_counts())
+        print(df["cell_type_basic"].value_counts())
+
+    print(get_cell_info(table_name="aibs_metamodel_celltypes_v661", cell_type="neuron", idx=0, padding_voxels=100, max_size_voxels=1000), mip=2)
 
 
 ### Cell types. https://tutorial.microns-explorer.org/annotation-tables.html#cell-type-tables

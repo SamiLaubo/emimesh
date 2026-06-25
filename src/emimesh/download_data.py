@@ -21,17 +21,26 @@ def download_webknossos(cloud_path, mip, pos, physical_size):
     return img, mag_voxel_size
 
 
-def download_cloudvolume(cloud_path, mip, pos, physical_size):
+def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox=None):
     from cloudvolume import CloudVolume
     vol = CloudVolume(
         cloud_path, use_https=True, parallel=8, progress=True, mip=mip, cache=True, bounded=True
     )
     print(f"data resolution: {vol.resolution}")
-    size = [ps / res for ps, res in zip(physical_size, vol.resolution)]
-    size = np.array(size).astype("uint64")
+    if cell_id_bbox is None:
+        size = [ps / res for ps, res in zip(physical_size, vol.resolution)]
+        size = np.array(size).astype("uint64")
 
-    pos = np.array(pos, dtype=np.float32)
-    pos[:2] /= 2  # account for different resolution online
+        pos = np.array(pos, dtype=np.float32)
+        pos[:2] /= 2  # account for different resolution online
 
-    img = vol.download_point(pos, mip=mip, size=size).squeeze()
+        img = vol.download_point(pos, mip=mip, size=size).squeeze()
+    
+    else: # Download binary for one cell_id
+        cell_id, bbox = cell_id_bbox
+        img = vol.download(bbox, mip=mip, label=cell_id).squeeze()
+        if np.sum(img) == 0:
+            raise ValueError(f"Downloaded image does not contain cell_id {cell_id} and bbox {bbox}!")
+        img = img.astype("uint64") * cell_id # Maintain same setup as other code
+
     return img, vol.resolution
