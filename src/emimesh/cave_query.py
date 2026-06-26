@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -63,6 +65,10 @@ def filter_df_by_bbox(df, cloud_path="precomputed://gs://iarpa_microns/minnie/mi
     print(f"Cloud volume bounding box: {bbox}")
     min_pt = bbox.minpt
     max_pt = bbox.maxpt
+
+    # Correct for different subvolume and reslution
+    min_pt[:2] *= 2
+    max_pt[:2] *= 2
     
     # Create boolean masks for X, Y, and Z axes
     in_x = (coords[:, 0] >= min_pt[0]) & (coords[:, 0] <= max_pt[0])
@@ -86,6 +92,10 @@ def skeleton_bounding_box(cell_id, cloud_path="minnie65_public", padding_voxels=
     print("Downloading skeleton for cell ID:", cell_id)
     dict = client.skeleton.get_skeleton(cell_id, output_format='dict') 
     vertices = dict["vertices"]
+
+    # print resolution of the client and bounds
+    print(f"Client resolution: {client.info.viewer_resolution()}")
+    print(f"Client bounds: {client.info.bounds()}")
 
     # nm to voxel
     resolution = np.array(client.info.viewer_resolution())
@@ -112,22 +122,31 @@ def get_valid_bbox(
         cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg"
     ):
 
-    bbox_skeleton = skeleton_bounding_box(cell_id, padding_voxels=padding_voxels)
+    # res?
+    # bbox_skeleton = skeleton_bounding_box(cell_id, padding_voxels=padding_voxels)
 
     # Bbox max size around cell center
+    # Org res
     bbox_centered_max = Bbox(cell_center - max_size_voxels // 2, cell_center + max_size_voxels // 2, unit="vx")
 
     # Bbox for segmentation data
+    # CV seg res
     bbox_seg = CloudVolume(cloud_path, use_https=True, mip=0, bounded=True).bounds
+    
+    # Fix resolution in x and y directions for segmentation data
+    # CV res
+    bbox_seg.minpt[:2] *= 2
+    bbox_seg.maxpt[:2] *= 2
 
     # Intersection of the three bounding boxes to ensure we stay within the segmentation data bounds
-    bbox_skeleton_max = Bbox.intersection(bbox_skeleton, bbox_centered_max)
-    bbox_final = Bbox.intersection(bbox_skeleton_max, bbox_seg)
+    # bbox = Bbox.intersection(bbox_skeleton, bbox_centered_max)
+    bbox = bbox_centered_max
+    bbox = Bbox.intersection(bbox, bbox_seg)
 
-    print(f"\nCalculated Bounding Box (mip=0 voxels): {bbox_final}")
-    print(f"Bounding Box Volume Size (x,y,z): {bbox_final.size3()}")
+    print(f"\nCalculated Bounding Box (mip=0 voxels): {bbox}")
+    print(f"Bounding Box Volume Size (x,y,z): {bbox.size3()}")
 
-    return bbox_final
+    return bbox
 
 
 def get_cell_info(
@@ -143,10 +162,20 @@ def get_cell_info(
     Get information about a specific cell from the specified table.
     """
     # Get the cell type table
+    # if os.path.exists(".cache/filtered_cell_table.csv"):
+        # df = pd.read_csv(".cache/filtered_cell_table.csv")
+    # if os.path.exists(".cache/filtered_cell_table.hdf5"):
+        # df = pd.read_hdf(".cache/filtered_cell_table.hdf5", key="cell_table")
+    # if os.path.exists(".cache/filtered_cell_table.pickle"):
+        # df = pd.read_pickle(".cache/filtered_cell_table.pickle")
+    # else:
+        # Filter the dataframe for out of bounds of cloud volume bounds
     df = get_cell_type_table(table_name)
-
-    # Filter the dataframe for out of bounds of cloud volume bounds
     df = filter_df_by_bbox(df, cloud_path)
+        
+        # Path(".cache").mkdir(parents=True, exist_ok=True)
+        # df.to_pickle(".cache/filtered_cell_table.pickle")
+        # df.to_csv(".cache/filtered_cell_table.csv", index=False)
 
     # Extract one cell
     cell_df = df[df['cell_type_basic'] == cell_type]
@@ -155,6 +184,8 @@ def get_cell_info(
 
     # Get info for one cell
     cell_id = cell_df["pt_root_id"].values[idx]
+
+    print("Cell ID: ", cell_id)
 
     bbox = get_valid_bbox(
         cell_id, 

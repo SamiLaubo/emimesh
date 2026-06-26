@@ -38,9 +38,13 @@ def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox=None)
     
     else: # Download binary for one cell_id
         cell_id, bbox = cell_id_bbox
-        img = vol.download(bbox, mip=mip, label=cell_id).squeeze()
-        if np.sum(img) == 0:
-            raise ValueError(f"Downloaded image does not contain cell_id {cell_id} and bbox {bbox}!")
-        img = img.astype("uint64") * cell_id # Maintain same setup as other code
+        # bbox = bbox.astype(np.int64)
+        # img = vol.download(bbox, mip=mip, label=cell_id, coord_resolution=(4,4,40)).squeeze()
+        # if np.sum(img) == 0:
+        #     raise ValueError(f"Downloaded image does not contain cell_id {cell_id} and bbox {bbox}!")
+        # img = img.astype("uint64") * cell_id # Maintain same setup as other code
+        pos = bbox.minpt.astype(np.float32)
+        pos[:2] /= 2  # account for different resolution online
+        img = vol.download_point(pos, mip=mip, size=100).squeeze()
 
     return img, vol.resolution
