@@ -17,6 +17,20 @@ def np2pv(arr, resolution, roimask=None, as_point_data=False):
         grid["roimask"] = roimask.flatten(order="F")
     return grid
 
+# def array_int_remap(arr):
+#     cell_labels, cell_counts = fastremap.unique(arr, return_counts=True)
+#     indices = np.argsort(cell_counts)
+#     remapping = {c:i for i,c in enumerate(cell_labels[indices])}
+#     arr = fastremap.remap(arr, table=remapping)
+#     return arr, remapping
+
+def remap_cloudvolume(arr, remapping=None, in_place=True):
+    if remapping is None:
+        arr, remapping_dict = fastremap.renumber(arr, in_place=in_place)
+        return arr, remapping_dict
+    else:
+        arr = fastremap.remap(arr, table=remapping, in_place=in_place)
+        return arr, remapping
 
 def get_cell_frequencies(img):
     # dask is slow, see: https://github.com/dask/dask/issues/10510

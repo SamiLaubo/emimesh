@@ -40,7 +40,7 @@ def get_cell_type_table(table_name="aibs_metamodel_celltypes_v661"):
         print(f"Error querying table {table_name}: {e}")
         return None
 
-def filter_df_by_bbox(df, cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg"):
+def filter_df_by_bbox(df, cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"):
     """
     Filters a CAVEclient dataframe, removing rows where 'pt_position' 
     is outside the specified bounding box of the cloud volume.
@@ -62,7 +62,7 @@ def filter_df_by_bbox(df, cloud_path="precomputed://gs://iarpa_microns/minnie/mi
     
     # Extract minimum and maximum points from the Bbox
     bbox = CloudVolume(cloud_path, use_https=True, mip=0, bounded=True).bounds
-    print(f"Cloud volume bounding box: {bbox}")
+    # print(f"Cloud volume bounding box: {bbox}")
     min_pt = bbox.minpt
     max_pt = bbox.maxpt
 
@@ -94,8 +94,8 @@ def skeleton_bounding_box(cell_id, cloud_path="minnie65_public", padding_voxels=
     vertices = dict["vertices"]
 
     # print resolution of the client and bounds
-    print(f"Client resolution: {client.info.viewer_resolution()}")
-    print(f"Client bounds: {client.info.bounds()}")
+    # print(f"Client resolution: {client.info.viewer_resolution()}")
+    # print(f"Client bounds: {client.info.bounds()}")
 
     # nm to voxel
     resolution = np.array(client.info.viewer_resolution())
@@ -119,22 +119,22 @@ def get_valid_bbox(
         cell_center, 
         padding_voxels=10, 
         max_size_voxels=1000,
-        cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg"
+        cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
     ):
 
     # res?
     # bbox_skeleton = skeleton_bounding_box(cell_id, padding_voxels=padding_voxels)
 
     # Bbox max size around cell center
-    # Org res
+    # Org res (4,4,40) nm for minnie65
     bbox_centered_max = Bbox(cell_center - max_size_voxels // 2, cell_center + max_size_voxels // 2, unit="vx")
 
     # Bbox for segmentation data
-    # CV seg res
+    # CV seg res (8,8,40) nm for
     bbox_seg = CloudVolume(cloud_path, use_https=True, mip=0, bounded=True).bounds
     
     # Fix resolution in x and y directions for segmentation data
-    # CV res
+    # CV res (4,4,40) nm
     bbox_seg.minpt[:2] *= 2
     bbox_seg.maxpt[:2] *= 2
 
@@ -143,15 +143,17 @@ def get_valid_bbox(
     bbox = bbox_centered_max
     bbox = Bbox.intersection(bbox, bbox_seg)
 
-    print(f"\nCalculated Bounding Box (mip=0 voxels): {bbox}")
-    print(f"Bounding Box Volume Size (x,y,z): {bbox.size3()}")
+    # print(f"\nCalculated Bounding Box (mip=0 voxels): {bbox}")
+    # print(f"Bounding Box Volume Size (x,y,z): {bbox.size3()}")
 
     return bbox
+
+# def convert_label_by_coords():
 
 
 def get_cell_info(
         table_name="aibs_metamodel_celltypes_v661",
-        cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg",
+        cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300",
         mip=0,
         cell_type="neuron", 
         idx=0, 
@@ -162,20 +164,15 @@ def get_cell_info(
     Get information about a specific cell from the specified table.
     """
     # Get the cell type table
-    # if os.path.exists(".cache/filtered_cell_table.csv"):
-        # df = pd.read_csv(".cache/filtered_cell_table.csv")
-    # if os.path.exists(".cache/filtered_cell_table.hdf5"):
-        # df = pd.read_hdf(".cache/filtered_cell_table.hdf5", key="cell_table")
-    # if os.path.exists(".cache/filtered_cell_table.pickle"):
-        # df = pd.read_pickle(".cache/filtered_cell_table.pickle")
-    # else:
+    if os.path.exists(".cache/filtered_cell_table.pickle"):
+        df = pd.read_pickle(".cache/filtered_cell_table.pickle")
+    else:
         # Filter the dataframe for out of bounds of cloud volume bounds
-    df = get_cell_type_table(table_name)
-    df = filter_df_by_bbox(df, cloud_path)
+        df = get_cell_type_table(table_name)
+        df = filter_df_by_bbox(df, cloud_path)
         
-        # Path(".cache").mkdir(parents=True, exist_ok=True)
-        # df.to_pickle(".cache/filtered_cell_table.pickle")
-        # df.to_csv(".cache/filtered_cell_table.csv", index=False)
+        Path(".cache").mkdir(parents=True, exist_ok=True)
+        df.to_pickle(".cache/filtered_cell_table.pickle")
 
     # Extract one cell
     cell_df = df[df['cell_type_basic'] == cell_type]
@@ -183,10 +180,12 @@ def get_cell_info(
         raise IndexError(f"Index {idx} is out of bounds for cell type '{cell_type}' with {len(cell_df)} entries.")
 
     # Get info for one cell
-    cell_id = cell_df["pt_root_id"].values[idx]
+    cell_id = cell_df["pt_root_id"].values[idx].astype(np.uint64)
 
-    print("Cell ID: ", cell_id)
+    print(f"Cell ID: {cell_id} with tyepe '{cell_type}' at index {idx} from table '{table_name}'.")
+    print(f"Cell position (pt_position): {cell_df['pt_position'].values[idx]}")
 
+    # bbox in (4,4,40) nm resolution
     bbox = get_valid_bbox(
         cell_id, 
         cell_df["pt_position"].values[idx], 
@@ -194,19 +193,6 @@ def get_cell_info(
         max_size_voxels=max_size_voxels,
         cloud_path=cloud_path
     )
-
-
-    # bbox = skeleton_bounding_box(cell_id, padding_voxels=padding_voxels, max_size_voxels=max_size_voxels)
-
-    # Convert bounds to correct mip
-    cv = CloudVolume(cloud_path, use_https=True, mip=0, bounded=True)
-    print(bbox)
-    bbox = cv.bbox_to_mip(bbox, mip=0, to_mip=mip)
-    print(bbox)
-
-    # Divide x and y by 2, not in z direction
-    # bbox = Bbox((bbox.minpt[0] // 2, bbox.minpt[1] // 2, bbox.minpt[2]), (bbox.maxpt[0] // 2, bbox.maxpt[1] // 2, bbox.maxpt[2]), unit="vx")
-
     
     return cell_id, bbox
     

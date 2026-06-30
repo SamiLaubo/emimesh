@@ -1,6 +1,8 @@
 import argparse
 from pathlib import Path
-from emimesh.utils import np2pv
+
+from fastremap import fastremap
+from emimesh.utils import np2pv, remap_cloudvolume
 from pathlib import Path
 import argparse
 from emimesh.download_data import download_webknossos, download_cloudvolume
@@ -83,7 +85,6 @@ def main():
         )
 
         img, res = download_cloudvolume(args.cloudpath, args.mip, None, None, cell_id_bbox=(cell_id, bbox))
-        # img = img.astype("uint64") * cell_id # Maintain same setup as other code
 
     else:
         position = args.position.split("-")
@@ -98,6 +99,7 @@ def main():
             img,res = download_webknossos(args.cloudpath, args.mip, position, size)
         
     print(res)
+
     data = np2pv(img, res)
     Path(args.output).parent.mkdir(exist_ok=True, parents=True)
     data.save(args.output)
