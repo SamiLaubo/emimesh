@@ -77,7 +77,6 @@ def main():
         cell_id, bbox = get_cell_info(
             table_name=args.cell_table_name,
             cloud_path=args.cloudpath,
-            mip=args.mip,
             cell_type=args.cell_type,
             idx=args.cell_idx,
             padding_voxels=args.cell_padding,

@@ -1,20 +1,20 @@
-name : "neuron0_mip1_smoothed"
+name : "neuron1_mip4_4"
 raw:
   cloudpath: "precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
-  # position : "107381-130628-25416" # http://tinyurl.com/ycytrm6t
-  position : ""
-  mip : 1
+  position : "1-1-1"
+  # position : ""
+  mip : 4
   size : 5000
 
   # Optionally, get one cell of specific type, generate bbox from skeleto and binary mask.
   # This is choosen if cell_type is not None.
   cell_type: "neuron" # [neuron, astrocyte, microglia, oligo, pericyte, OPC] See cave_query.py
   cell_idx: 0 # index of the cell in the table
-  cell_padding: 100 # padding around the cell skeleton bounding box
+  cell_padding: 500 # padding around the cell skeleton bounding box
   cell_table_name: "aibs_metamodel_celltypes_v661" # name of the cell type table to query. Only default is tested!
-  cell_max_size: 1000 # Max voxels in one dimension
+  cell_max_size: 5000 # Max voxels in one dimension
 processing:
-  dx : 20
+  dx : 100 # 20
   operation :
     # - "ncells ncells=2"
     - "smooth iterations=1 radius=2"

@@ -24,7 +24,7 @@ def download_webknossos(cloud_path, mip, pos, physical_size):
 def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox=None):
     from cloudvolume import CloudVolume
     vol = CloudVolume(
-        cloud_path, use_https=True, parallel=8, progress=True, mip=mip, cache=True, bounded=True
+        cloud_path, use_https=True, parallel=8, progress=True, mip=mip, cache=True, bounded=True, fill_missing=True
     )
     print(f"data resolution: {vol.resolution}")
     if cell_id_bbox is None:
@@ -38,7 +38,8 @@ def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox=None)
     
     else: # Download binary for one cell_id
         cell_id, bbox = cell_id_bbox
-        bbox = bbox.astype(np.int64)
+
+        # bbox = bbox.astype(np.int64)
         # bbox comes from original resolution (4,4,40) nm
         img = vol.download(bbox, mip=mip, label=cell_id, coord_resolution=(4,4,40)).squeeze()
         if np.sum(img) == 0:
