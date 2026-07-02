@@ -65,8 +65,9 @@ def main():
     parser.add_argument(
         "--cell_keep_surrounding",
         help="keep surrounding cells in the bounding box (optional, default=False)",
-        type=bool,
-        default=False
+        type=str,
+        default="False",
+        # action=argparse.BooleanOptionalAction
     )
 
     args = parser.parse_args()
@@ -89,7 +90,7 @@ def main():
             max_size_nm=args.cell_max_size,
         )
 
-        img, res = download_cloudvolume(args.cloudpath, args.mip, None, None, cell_id_bbox_surrounding=(cell_id, bbox, args.cell_keep_surrounding))
+        img, res = download_cloudvolume(args.cloudpath, args.mip, None, None, cell_id_bbox_surrounding=(cell_id, bbox, args.cell_keep_surrounding.lower() == "true"))
 
     else:
         position = args.position.split("-")

@@ -1,4 +1,4 @@
-name : "neuron1_mip4_11"
+name : "neuron1_mip4_13"
 raw:
   cloudpath: "precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
   position : "1-1-1"
@@ -12,8 +12,8 @@ raw:
   cell_idx: 255 # index of the cell in the table
   cell_padding: 500 # padding around the cell skeleton bounding box
   cell_table_name: "aibs_metamodel_celltypes_v661" # name of the cell type table to query. Only default is tested!
-  cell_max_size: 50_000 # Max nm in one dimension
-  cell_keep_surrounding: false # Keep surrounding cells in the bounding box
+  cell_max_size: 5_000 # Max nm in one dimension
+  cell_keep_surrounding: False # Keep surrounding cells in the bounding box
 processing:
   dx : 100 # 20
   operation :

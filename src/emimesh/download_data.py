@@ -42,9 +42,11 @@ def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox_surro
         # bbox = bbox.astype(np.int64)
         # bbox comes from original resolution (4,4,40) nm
         if surrounding:
+            print(f"Downloading surrounding cells in the bounding box {bbox} for cell_id {cell_id}")
             # Download surrounding cells in the bounding box
             img = vol.download(bbox, mip=mip, coord_resolution=(4,4,40)).squeeze()
         else: # Download binary for one cell_id
+            print(f"Downloading binary for cell_id {cell_id} in the bounding box {bbox}")
             img = vol.download(bbox, mip=mip, label=cell_id, coord_resolution=(4,4,40)).squeeze()
             if np.sum(img) == 0:
                 raise ValueError(f"Downloaded image does not contain cell_id {cell_id} and bbox {bbox}!")
