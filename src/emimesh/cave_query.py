@@ -37,21 +37,21 @@ def get_cell_type_table(table_name="aibs_metamodel_celltypes_v661"):
 
         df['cell_type_basic'] = df.apply(classify, axis=1)
 
-        return df
+        return df.drop_duplicates('pt_root_id', keep=False)
     except Exception as e:
         print(f"Error querying table {table_name}: {e}")
         return None
 
 def filter_df_by_bbox(df, cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"):
     """
-    Filters a CAVEclient dataframe, removing rows where 'pt_position' 
+    Filters a CAVEclient dataframe, removing rows where 'pt_position'
     is outside the specified bounding box of the cloud volume.
     Because segmentation data is a subset of the full volume.
-    
+
     Args:
         df (pd.DataFrame): The dataframe containing a 'pt_position' column.
         cloud_path (str): The path to the cloud volume.
-        
+
     Returns:
         pd.DataFrame: A new dataframe containing only the rows within the bounding box.
     """
@@ -61,26 +61,67 @@ def filter_df_by_bbox(df, cloud_path="precomputed://gs://iarpa_microns/minnie/mi
     # Convert the list of coordinates in 'pt_position' into a 2D numpy array
     # Shape will be (N, 3) where N is the number of rows
     coords = np.array(df['pt_position'].tolist())
-    
+
     # Extract minimum and maximum points from the Bbox
     bbox = CloudVolume(cloud_path, use_https=True, mip=0, bounded=True).bounds
-    min_pt = bbox.minpt
-    max_pt = bbox.maxpt
+    min_pt = bbox.minpt + 1000  # Add padding to avoid edge cases
+    max_pt = bbox.maxpt - 1000
 
     # Correct for different subvolume and reslution
     min_pt[:2] *= 2
     max_pt[:2] *= 2
-    
+
     # Create boolean masks for X, Y, and Z axes
     in_x = (coords[:, 0] >= min_pt[0]) & (coords[:, 0] <= max_pt[0])
     in_y = (coords[:, 1] >= min_pt[1]) & (coords[:, 1] <= max_pt[1])
     in_z = (coords[:, 2] >= min_pt[2]) & (coords[:, 2] <= max_pt[2])
-    
+
     # Combine masks to find points that satisfy all three conditions
     inside_mask = in_x & in_y & in_z
-    
-    # Return the filtered dataframe, resetting the index for cleanliness
+
+    # Return the filtered dataframe
     return df[inside_mask].reset_index(drop=True)
+
+def filter_df_by_proofread_cells(df, proofread_status=["axon_fully_extended"], cloud_path="minnie65_public"):
+    """
+    Filters the dataframe:
+    - Neurons are kept only if they are found in the proofreading_status_and_strategy table.
+    - Non-neurons are always kept.
+
+    Args:
+        df (pd.DataFrame): The dataframe to filter. Must contain 'pt_root_id' and 'cell_type_basic'.
+        proofread_status (list): List of statuses to keep (e.g., ["axon_fully_extended"]).
+        cloud_path (str): CAVE client path.
+
+    Returns:
+        pd.DataFrame: Filtered dataframe.
+    """
+    if 'pt_root_id' not in df.columns:
+        raise ValueError("Dataframe must contain a 'pt_root_id' column.")
+    if 'cell_type_basic' not in df.columns:
+        raise ValueError("Dataframe must contain a 'cell_type_basic' column.")
+
+    client = CAVEclient(cloud_path)
+
+    try:
+        # Query the proofreading status table for matching root IDs
+        proofread_df = client.materialize.query_table(
+            "proofreading_status_and_strategy",
+            select_columns=['pt_root_id'],
+            filter_in_dict={"strategy_axon": proofread_status}
+        )
+        proofread_root_ids = set(proofread_df['pt_root_id'].tolist())
+    except Exception as e:
+        print(f"Error querying proofreading table: {e}")
+        return df
+
+    # Logic: Keep if (not a neuron) OR (is a neuron AND is proofread)
+    is_neuron = (df['cell_type_basic'] == 'neuron')
+    is_proofread = df['pt_root_id'].isin(proofread_root_ids)
+
+    mask = (~is_neuron) | (is_neuron & is_proofread)
+
+    return df[mask].reset_index(drop=True)
     
 def skeleton_bounding_box(cell_id, cloud_path="minnie65_public", padding_voxels=10):
     """
@@ -115,7 +156,7 @@ def get_valid_bbox(
         cell_id, 
         cell_center, 
         padding_voxels=10, 
-        max_size_voxels=1000,
+        max_size_nm=100,
         cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
     ):
 
@@ -125,6 +166,8 @@ def get_valid_bbox(
 
     # Bbox max size around cell center
     # Org res (4,4,40) nm for minnie65
+    # max size nm to voxel conversion
+    max_size_voxels = np.array([max_size_nm, max_size_nm, max_size_nm]) / np.array([4,4,40])
     bbox_centered_max = Bbox(cell_center - max_size_voxels // 2, cell_center + max_size_voxels // 2, unit="vx")
     # print(f"Centered max bounding box volume size: {bbox_centered_max.size3()}")
 
@@ -146,10 +189,12 @@ def get_valid_bbox(
     bbox = Bbox.intersection(bbox, bbox_seg)
     print(f"Final volume after intersection with segmentation bbox: {bbox.size3()}")
 
-    # Make each side divisible by 8 for parallel downloading
-    bbox = Bbox((np.ceil(bbox.minpt / 10) * 10).astype(np.int32), (np.floor(bbox.maxpt / 10) * 10).astype(np.int32), unit="vx")
+    # Round up to divisor
+    divisor = 1000
+    if (bbox.size3() % divisor > 0).any():
+        bbox = Bbox(bbox.minpt, (bbox.maxpt + (divisor - bbox.size3() % divisor)).astype(np.int32), unit="vx")
 
-    print(f"Final volume after making it divisible by 8: {bbox.size3()} ({bbox.size3() * np.array([4,4,40]) * 1e-3} mum^3)")
+    print(f"Final volume after making it divisible by {divisor}: {bbox.size3()} ({bbox.size3() * np.array([4,4,40]) * 1e-3} mum^3)")
 
     return bbox
 
@@ -236,7 +281,7 @@ def get_cell_info(
         cell_type="neuron", 
         idx=0, 
         padding_voxels=100, 
-        max_size_voxels=1000,
+        max_size_nm=100_000,
     ):
     """
     Get information about a specific cell from the specified table.
@@ -260,23 +305,19 @@ def get_cell_info(
     # Get info for one cell
     cell_id = cell_df["pt_root_id"].values[idx].astype(np.uint64)
 
-    print(f"Cell ID: {cell_id} with tyepe '{cell_type}' at index {idx} from table '{table_name}'.")
+    print(f"Cell ID: {cell_id} with type '{cell_type}' at index {idx} from table '{table_name}'.")
     print(f"Cell position (pt_position): {cell_df['pt_position'].values[idx]}")
 
+    # Print neuroglancer link for the cell
     x, y, z = cell_df['pt_position'].values[idx]
     print(f"Neuroglancer link: {get_cell_url(x, y, z, cell_id)}")
-    # print(f"Neuroglancer link:\n-----------------------------------\n\
-    # https://ngl.microns-explorer.org/#!%7B%22dimensions%22:%7B%22x%22:%5B4e-9%2C%22m%22%5D%2C%22y%22:%5B4e-9%2C%22m%22%5D%2C%22z%22:%5B4e-8%2C%22m%22%5D%7D%2C%22position%22:%5B{x}%2C{y}%2C{z}%5D%2C%22crossSectionScale%22:7.096617776349856%2C%22projectionOrientation%22:%5B-0.9350257515907288%2C0.13611161708831787%2C0.29464977979660034%2C-0.14276540279388428%5D%2C%22projectionScale%22:489587.6696286937%2C%22layers%22:%5B%7B%22type%22:%22image%22%2C%22source%22:%7B%22url%22:%22precomputed://https://bossdb-open-data.s3.amazonaws.com/iarpa_microns/minnie/minnie65/em%22%2C%22subsources%22:%7B%22default%22:true%7D%2C%22enableDefaultSubsources%22:false%7D%2C%22tab%22:%22source%22%2C%22shaderControls%22:%7B%22normalized%22:%7B%22range%22:%5B86%2C172%5D%7D%7D%2C%22name%22:%22img65%22%7D%2C%7B%22type%22:%22image%22%2C%22source%22:%7B%22url%22:%22precomputed://https://bossdb-open-data.s3.amazonaws.com/iarpa_microns/minnie/minnie35/em%22%2C%22subsources%22:%7B%22default%22:true%7D%2C%22enableDefaultSubsources%22:false%7D%2C%22tab%22:%22source%22%2C%22shaderControls%22:%7B%22normalized%22:%7B%22range%22:%5B112%2C172%5D%7D%7D%2C%22name%22:%22img35%22%7D%2C%7B%22type%22:%22segmentation%22%2C%22source%22:%22precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300%22%2C%22tab%22:%22segments%22%2C%22annotationColor%22:%22#8f8f8a%22%2C%22selectedAlpha%22:0.41%2C%22notSelectedAlpha%22:0.06%2C%22segments%22:%5B%22864691134064155671%22%2C%22864691136144674612%22%2C%22864691135307555142%22%2C%22864691135937286404%22%2C%22864691136812081779%22%2C%22864691135067270468%22%2C%22864691135346954143%22%2C%22864691135356428751%22%2C%22864691135375633481%22%2C%22864691135394307317%22%2C%22864691135465381701%22%2C%22864691135492697695%22%2C%22864691135591944203%22%2C%22864691135617551721%22%2C%22864691135655610562%22%2C%22864691135777697453%22%2C%22864691135778484669%22%2C%22864691135808982045%22%2C%22864691135851839687%22%2C%22864691135865240702%22%2C%22864691136040742142%22%2C%22864691136210344892%22%2C%22864691136210699964%22%2C%22864691136662432990%22%2C%22864691136674556295%22%2C%22864691136912943345%22%5D%2C%22segmentQuery%22:%22864691136662432990%2C%20864691136144674612%2C%20864691135465381701%2C%20864691135375633481%2C%20864691136210344892%2C%20864691135808982045%2C%20864691135067270468%2C%20864691136040742142%2C%20864691135778484669%2C%20864691135777697453%2C%20864691135394307317%2C%20864691135865240702%2C%20864691135655610562%2C%20864691136674556295%2C%20864691135591944203%2C%20864691136210699964%2C%20864691135492697695%2C%20864691135346954143%2C%20864691136912943345%2C%20864691135937286404%2C%20864691135617551721%2C%20864691136812081779%2C%20864691135851839687%2C%20864691135356428751%22%2C%22colorSeed%22:1689220695%2C%22name%22:%22seg65%22%7D%2C%7B%22type%22:%22segmentation%22%2C%22source%22:%22precomputed://gs://iarpa_microns/minnie/minnie35/seg%22%2C%22tab%22:%22segments%22%2C%22annotationColor%22:%22#8a8a8a%22%2C%22segments%22:%5B%22864691137827278437%22%2C%22864691138020403235%22%2C%22864691138081021535%22%2C%22864691138134948293%22%2C%22864691138142870469%22%2C%22%21864691138153699060%22%2C%22864691138178964470%22%2C%22864691138345166401%22%5D%2C%22name%22:%22seg35%22%7D%5D%2C%22showSlices%22:false%2C%22selectedLayer%22:%7B%22visible%22:true%2C%22layer%22:%22seg65%22%7D%2C%22layout%22:%7B%22type%22:%22xy-3d%22%2C%22orthographicProjection%22:true%7D%7D \
-    # \n-----------------------------------\n")
-
-
 
     # bbox in (4,4,40) nm resolution
     bbox = get_valid_bbox(
         cell_id, 
         cell_df["pt_position"].values[idx], 
         padding_voxels=padding_voxels, 
-        max_size_voxels=max_size_voxels,
+        max_size_nm=max_size_nm,
         cloud_path=cloud_path
     )
 

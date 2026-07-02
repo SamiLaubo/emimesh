@@ -21,13 +21,13 @@ def download_webknossos(cloud_path, mip, pos, physical_size):
     return img, mag_voxel_size
 
 
-def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox=None):
+def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox_surrounding=None):
     from cloudvolume import CloudVolume
     vol = CloudVolume(
         cloud_path, use_https=True, parallel=8, progress=True, mip=mip, cache=True, bounded=True, fill_missing=True
     )
     print(f"data resolution: {vol.resolution}")
-    if cell_id_bbox is None:
+    if cell_id_bbox_surrounding is None:
         size = [ps / res for ps, res in zip(physical_size, vol.resolution)]
         size = np.array(size).astype("uint64")
 
@@ -37,13 +37,17 @@ def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox=None)
         img = vol.download_point(pos, mip=mip, size=size).squeeze()
     
     else: # Download binary for one cell_id
-        cell_id, bbox = cell_id_bbox
+        cell_id, bbox, surrounding = cell_id_bbox_surrounding
 
         # bbox = bbox.astype(np.int64)
         # bbox comes from original resolution (4,4,40) nm
-        img = vol.download(bbox, mip=mip, label=cell_id, coord_resolution=(4,4,40)).squeeze()
-        if np.sum(img) == 0:
-            raise ValueError(f"Downloaded image does not contain cell_id {cell_id} and bbox {bbox}!")
-        img = img.astype("uint64") * cell_id # Maintain same setup as other code
+        if surrounding:
+            # Download surrounding cells in the bounding box
+            img = vol.download(bbox, mip=mip, coord_resolution=(4,4,40)).squeeze()
+        else: # Download binary for one cell_id
+            img = vol.download(bbox, mip=mip, label=cell_id, coord_resolution=(4,4,40)).squeeze()
+            if np.sum(img) == 0:
+                raise ValueError(f"Downloaded image does not contain cell_id {cell_id} and bbox {bbox}!")
+            img = img.astype("uint64") * cell_id # Maintain same setup as other code
 
     return img, vol.resolution

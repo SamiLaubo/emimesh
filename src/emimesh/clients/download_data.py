@@ -62,6 +62,12 @@ def main():
         type=int,
         default=1000,
     )
+    parser.add_argument(
+        "--cell_keep_surrounding",
+        help="keep surrounding cells in the bounding box (optional, default=False)",
+        type=bool,
+        default=False
+    )
 
     args = parser.parse_args()
 
@@ -80,10 +86,10 @@ def main():
             cell_type=args.cell_type,
             idx=args.cell_idx,
             padding_voxels=args.cell_padding,
-            max_size_voxels=args.cell_max_size,
+            max_size_nm=args.cell_max_size,
         )
 
-        img, res = download_cloudvolume(args.cloudpath, args.mip, None, None, cell_id_bbox=(cell_id, bbox))
+        img, res = download_cloudvolume(args.cloudpath, args.mip, None, None, cell_id_bbox_surrounding=(cell_id, bbox, args.cell_keep_surrounding))
 
     else:
         position = args.position.split("-")
