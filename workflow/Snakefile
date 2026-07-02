@@ -161,3 +161,15 @@ rule generateAnalysisPlot:
         --infile {input.infile} --output {output.plotfile}
         """
 
+rule labelMesh:
+    input:
+        folder="results/{name}/"
+    conda:
+        conda_env
+    shell:
+        """
+        emi-label-meshes \
+        --folder {input.folder}
+        """
+
+

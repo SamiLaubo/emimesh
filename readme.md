@@ -25,6 +25,23 @@ Then, run snakemake on an example configuration file, with e.g.
 
 `snakemake --configfile configfiles/cortical_mm3.yml --use-conda --cores 8`
 
+If using caveclient (to get one neuron etc.) set up a authentication token ([docs](https://www.caveconnecto.me/CAVEclient/tutorials/authentication/)):  
+1. Activate conda env
+2. pip install caveclient
+3. run python  
+```python
+from caveclient import CAVEclient
+client = CAVEclient()
+auth = client.auth
+
+auth.get_new_token()
+# Follow commands
+
+new_token = "your-token-from-website" # This is the text you see after you visit the website.
+auth.save_token(token=new_token)
+print(f"My token is now: {auth.token}")
+```
+
 
 ## Intended Workflow
 Emimesh works with `.yaml` configuration files (see `config_files/` for examples). In one file, you specify:

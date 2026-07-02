@@ -1,4 +1,4 @@
-name : "neuron1_mip4_10"
+name : "neuron1_mip4_vol_2"
 raw:
   cloudpath: "precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
   position : "1-1-1"
@@ -6,13 +6,13 @@ raw:
   mip : 4
   size : 5000
 
-  # Optionally, get one cell of specific type, generate bbox from skeleto and binary mask.
+  # Optionally, get one cell of specific type, generate bbox from skeleton.
   # This is choosen if cell_type is not None.
   cell_type: "neuron" # [neuron, astrocyte, microglia, oligo, pericyte, OPC] See cave_query.py
   cell_idx: 255 # index of the cell in the table
   cell_padding: 500 # padding around the cell skeleton bounding box
   cell_table_name: "aibs_metamodel_celltypes_v661" # name of the cell type table to query. Only default is tested!
-  cell_max_size: 5000 # Max voxels in one dimension
+  cell_max_size: 5_000 # Max nm in one dimension
   cell_keep_surrounding: true # Keep surrounding cells in the bounding box
 processing:
   dx : 100 # 20
