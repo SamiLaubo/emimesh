@@ -6,7 +6,7 @@ raw:
   mip : 4
   size : 5000
 
-  # Optionally, get one cell of specific type, generate bbox from skeleto and binary mask.
+  # Optionally, get one cell of specific type, generate bbox from skeleton.
   # This is choosen if cell_type is not None.
   cell_type: "neuron" # [neuron, astrocyte, microglia, oligo, pericyte, OPC] See cave_query.py
   cell_idx: 255 # index of the cell in the table
