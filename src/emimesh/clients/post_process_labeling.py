@@ -5,17 +5,10 @@ import argparse
 from pathlib import Path
 from emimesh.cave_query import get_cell_type_table
 
-def process_folder(folder, cell_type_lookup):
+def process_folder(stats_path, cell_type_lookup, output_path):
     """
     Processes a single result folder to create cell_type_mapping.yml.
     """
-    stats_path = folder / "processed" / "imagestatistic.yml"
-
-    if not stats_path.exists():
-        print(f"Skipping {folder.name}: {stats_path} not found.")
-        return False
-
-    print(f"Processing {folder.name}...")
 
     # Read the mapping from imagestatistic.yml
     with open(stats_path, 'r') as f:
@@ -26,11 +19,10 @@ def process_folder(folder, cell_type_lookup):
             return False
 
     if not data or 'mapping' not in data:
-        print(f"Skipping {folder.name}: No 'mapping' found in {stats_path}.")
+        print(f"Skipping {stats_path}: No 'mapping' found in {stats_path}.")
         return False
 
     original_mapping = data['mapping']
-    # original_mapping is { original_cell_id: mesh_label }
 
     # Create the mesh_label -> cell_type mapping
     label_to_type = {}
@@ -44,20 +36,22 @@ def process_folder(folder, cell_type_lookup):
         cell_type = cell_type_lookup.get(sid, "unknown")
         label_to_type[mesh_label] = cell_type
 
-    # Save the mapping to cell_type_mapping.yml
-    output_path = folder / "processed" / "cell_type_mapping.yml"
+    # Save the mapping
     with open(output_path, 'w') as f:
         yaml.dump(label_to_type, f, default_flow_style=False)
 
-    print(f"  Saved mapping to {output_path}")
     return True
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--folder", 
+        "--imagestatistic_path",
         type=str,
-        help="Folder to process.")
+        help="Path to the imagestatistic.yml file.")
+    parser.add_argument(
+        "--output_path",
+        type=str,
+        help="Path to the output file.")
     args = parser.parse_args()
 
     # 1. Load the global cell type table from CAVE or cache
@@ -83,18 +77,7 @@ def main():
     cell_type_lookup = cell_df.set_index('pt_root_id')['cell_type_basic'].to_dict()
     print(f"Loaded {len(cell_type_lookup)} cell type mappings.")
 
-    target_path = Path(args.folder)
-    if target_path.is_dir():
-        # If we are pointing exactly at the results directory, process all its subfolders
-        if target_path.name == "results" and target_path.parent == Path("."):
-            for folder in target_path.iterdir():
-                if folder.is_dir():
-                    process_folder(folder, cell_type_lookup)
-        else:
-            # Otherwise, treat the provided path as a single result folder to process
-            process_folder(target_path, cell_type_lookup)
-    else:
-        print(f"Error: {args.folder} is not a valid directory.")
+    process_folder(Path(args.imagestatistic_path), cell_type_lookup, output_path=Path(args.output_path))
 
     print("\nPost-processing complete.")
 

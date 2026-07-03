@@ -1,4 +1,4 @@
-name : "neuron4P_idx255_mip4_dx100_100_000_2"
+name : "neuron4P_idx255_mip4_dx100_10"
 raw:
   cloudpath: "precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
   position : "0-0-0"

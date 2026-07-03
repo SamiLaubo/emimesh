@@ -19,6 +19,7 @@ processed_data_path = processed_dir + "processed.vti"
 csgtree = surf_dir + "csgtree.json"
 cellsizeplot = processed_dir + "cellsizes.png"
 imagestatistic = processed_dir + "imagestatistic.yml"
+cell_type_mapping = processed_dir + "cell_type_mapping.yml"
 
 mesh_path = mesh_dir + "mesh.xdmf"
 meshstatistic = mesh_dir + "meshstatistic.yml"
@@ -41,7 +42,8 @@ def dict_to_optionsstring(d):
 rule all:
     input:
         mesh_img.format(name=name),
-        meshstatistic.format(name=name)
+        meshstatistic.format(name=name),
+        cell_type_mapping.format(name=name)
 
 rule downloadImageData:
     output:
@@ -163,13 +165,16 @@ rule generateAnalysisPlot:
 
 rule labelMesh:
     input:
-        folder="results/{name}/"
+        imagestatistic_path=imagestatistic,
+    output:
+        cell_type_mapping=cell_type_mapping
     conda:
         conda_env
     shell:
         """
         emi-label-meshes \
-        --folder {input.folder}
+        --imagestatistic_path {input.imagestatistic_path} \
+        --output_path {output.cell_type_mapping}
         """
 
 
