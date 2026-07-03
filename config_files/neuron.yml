@@ -1,7 +1,7 @@
-name : "neuron255_mip2_dx100"
+name : "neuron4P_idx255_mip4_dx100_100_000_2"
 raw:
   cloudpath: "precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
-  position : "1-1-1"
+  position : "0-0-0"
   # position : ""
   mip : 4
   size : 5000
@@ -9,16 +9,19 @@ raw:
   # Optionally, get one cell of specific type, generate bbox from skeleton.
   # This is choosen if cell_type is not None.
   cell_type: "neuron" # [neuron, astrocyte, microglia, oligo, pericyte, OPC] See cave_query.py
-  cell_idx: 255 # index of the cell in the table
+  cell_neuron_type: "4P" # Specific neuron type, see cave_query.py for available types. If empty, any neuron type is accepted.
+  cell_idx: 0 # index of the cell in the table
   cell_padding: 500 # padding around the cell skeleton bounding box
   cell_table_name: "aibs_metamodel_celltypes_v661" # name of the cell type table to query. Only default is tested!
-  cell_max_size: 5_000 # Max nm in one dimension
+  cell_max_size: 100_000 # Max nm in one dimension
   cell_keep_surrounding: False # Keep surrounding cells in the bounding box
 processing:
   dx : 100 # 20
   operation :
-    - "smooth iterations=1 radius=2"
-    - "erode radius=1"
+    - "removeislands minsize=10000"    # Remove small noise
+    - "dilate radius=2"               # Close small gaps
+    - "smooth iterations=1 radius=2"  # Smooth boundaries
+    - "erode radius=2"                # Create gaps between cells
 meshing:
   envelopsize : 50 # 20-50% of dx
 

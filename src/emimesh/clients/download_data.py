@@ -44,6 +44,13 @@ def main():
         type=str,
         default=None,
     )
+
+    parser.add_argument(
+        "--cell_neuron_type",
+        help="specific neuron type to download (optional)",
+        type=str,
+        default="",
+    )
     parser.add_argument(
         "--cell_idx",
         help="index of the cell type from table to download (optional) ",
@@ -85,9 +92,11 @@ def main():
             table_name=args.cell_table_name,
             cloud_path=args.cloudpath,
             cell_type=args.cell_type,
+            cell_neuron_type=args.cell_neuron_type,
             idx=args.cell_idx,
             padding_voxels=args.cell_padding,
             max_size_nm=args.cell_max_size,
+            output=args.output
         )
 
         img, res = download_cloudvolume(args.cloudpath, args.mip, None, None, cell_id_bbox_surrounding=(cell_id, bbox, args.cell_keep_surrounding.lower() == "true"))

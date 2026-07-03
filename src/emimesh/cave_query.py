@@ -10,6 +10,8 @@ import urllib
 
 from emimesh.utils import np2pv
 from emimesh.download_data import download_webknossos, download_cloudvolume
+# from utils import np2pv
+# from download_data import download_webknossos, download_cloudvolume
 
 def get_cell_type_table(table_name="aibs_metamodel_celltypes_v661"):
     """
@@ -162,7 +164,8 @@ def get_valid_bbox(
 
     # res?
     bbox_skeleton = skeleton_bounding_box(cell_id, padding_voxels=padding_voxels)
-    # print(f"Skeleton bounding box volume size (x,y,z): {bbox_skeleton.size3()}")
+    print(f"Skeleton bounding box volume size (x,y,z): {bbox_skeleton.size3()} or {bbox_skeleton.size3() * np.array([4,4,40])} nm^3. Not used!")
+    print(bbox_skeleton)
 
     # Bbox max size around cell center
     # Org res (4,4,40) nm for minnie65
@@ -182,8 +185,10 @@ def get_valid_bbox(
 
     # Intersection of the three bounding boxes to ensure we stay within the segmentation data bounds
     # Print volume loss from intersection
-    print("Starting from bbox from skeleton with volume size (x,y,z):", bbox_skeleton.size3())
-    bbox = Bbox.intersection(bbox_skeleton, bbox_centered_max)
+    # print("Starting from bbox from skeleton with volume size (x,y,z):", bbox_skeleton.size3())
+    # bbox = Bbox.intersection(bbox_skeleton, bbox_centered_max)
+    # print(f"Volume after intersection with centered max bbox: {bbox.size3()}")
+    bbox = bbox_centered_max
     print(f"Volume after intersection with centered max bbox: {bbox.size3()}")
     
     bbox = Bbox.intersection(bbox, bbox_seg)
@@ -191,8 +196,8 @@ def get_valid_bbox(
 
     # Round up to divisor
     divisor = 1000
-    if (bbox.size3() % divisor > 0).any():
-        bbox = Bbox(bbox.minpt, (bbox.maxpt + (divisor - bbox.size3() % divisor)).astype(np.int32), unit="vx")
+    # if (bbox.size3() % divisor > 0).any():
+    #     bbox = Bbox(bbox.minpt, (bbox.maxpt + (divisor - bbox.size3() % divisor)).astype(np.int32), unit="vx")
 
     print(f"Final volume after making it divisible by {divisor}: {bbox.size3()} ({bbox.size3() * np.array([4,4,40]) * 1e-3} mum^3)")
 
@@ -200,7 +205,7 @@ def get_valid_bbox(
 
 # def convert_label_by_coords():
 
-def get_cell_url(x, y, z, cell_id):
+def cell_url(x, y, z, cell_id, output_folder=None):
     state_json = {
         "dimensions": {
             "x": [4e-09,"m"],
@@ -269,19 +274,30 @@ def get_cell_url(x, y, z, cell_id):
         req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req) as response:
             # .strip() removes the invisible newline character at the end of the response
-            return response.read().decode('utf-8').strip()
+            url = response.read().decode('utf-8').strip()
             
     except Exception as e:
         print(f"Shortener failed: {e}")
-        return full_url  # Fallback to the long URL if the API fails
+        url = full_url  # Fallback to the long URL if the API fails
+
+    print(f"Neuroglancer link for cell {cell_id}: {url}")
+
+    if output_folder is not None:
+        Path(output_folder).mkdir(parents=True, exist_ok=True)
+        output_file = os.path.join(output_folder, f"neuroglancer_link.txt")
+        with open(output_file, 'w') as f:
+            f.write(f"Cell ID: {cell_id}\n")
+            f.write(f"Neuroglancer link: {url}\n")
 
 def get_cell_info(
         table_name="aibs_metamodel_celltypes_v661",
         cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300",
         cell_type="neuron", 
+        cell_neuron_type="",
         idx=0, 
         padding_voxels=100, 
         max_size_nm=100_000,
+        output="data.xdmf"
     ):
     """
     Get information about a specific cell from the specified table.
@@ -298,19 +314,25 @@ def get_cell_info(
         df.to_pickle(".cache/filtered_cell_table.pickle")
 
     # Extract one cell
-    cell_df = df[df['cell_type_basic'] == cell_type]
+    if cell_neuron_type != "":
+        print(f"Filtering for specific neuron type: {cell_neuron_type}")
+        cell_df = df[df['cell_type'] == cell_neuron_type]
+    else:
+        print(f"Filtering for cell type: {cell_type}")
+        cell_df = df[df['cell_type_basic'] == cell_type]
     if idx >= len(cell_df):
         raise IndexError(f"Index {idx} is out of bounds for cell type '{cell_type}' with {len(cell_df)} entries.")
 
     # Get info for one cell
     cell_id = cell_df["pt_root_id"].values[idx].astype(np.uint64)
+    cell_type = cell_df["cell_type"].values[idx]
 
-    print(f"Cell ID: {cell_id} with type '{cell_type}' at index {idx} from table '{table_name}'.")
+    print(f"Cell ID: {cell_id} with type {cell_type} at index {idx} from table '{table_name}'.")
     print(f"Cell position (pt_position): {cell_df['pt_position'].values[idx]}")
 
-    # Print neuroglancer link for the cell
+    # Print and save neuroglancer link for the cell
     x, y, z = cell_df['pt_position'].values[idx]
-    print(f"Neuroglancer link: {get_cell_url(x, y, z, cell_id)}")
+    cell_url(x, y, z, cell_id, Path(output).parent)
 
     # bbox in (4,4,40) nm resolution
     bbox = get_valid_bbox(
@@ -337,6 +359,7 @@ if __name__ == "__main__":
 
         print(df.head())
         print(df["cell_type_basic"].value_counts())
+        print(df["cell_type"].value_counts())
 
     print(get_cell_info(table_name="aibs_metamodel_celltypes_v661", cell_type="neuron", idx=0, padding_voxels=100, max_size_voxels=1000), mip=2)
 
