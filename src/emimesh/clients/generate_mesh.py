@@ -43,7 +43,7 @@ def main():
     roifile = [s for s in surfs if "roi.ply" in s][0]
     roi = pv.read(roifile)
     diag = np.sqrt(3) * roi.volume ** (1 / 3)
-    abs_eps = args.envelopsize    
+    abs_eps = args.envelopsize
     volmesh = mesh_surfaces(
         args.csgtree,
         eps=abs_eps / diag,
@@ -52,7 +52,6 @@ def main():
     )
     pv.save_meshio(args.output, volmesh)
     print(volmesh.array_names)
-
 
 
 if __name__ == "__main__":

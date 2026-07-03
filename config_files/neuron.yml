@@ -1,9 +1,9 @@
-name : "neuron1_mip4_13"
+name : "neuron255_mip2_dx100"
 raw:
   cloudpath: "precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
   position : "1-1-1"
   # position : ""
-  mip : 8
+  mip : 4
   size : 5000
 
   # Optionally, get one cell of specific type, generate bbox from skeleton.
@@ -12,7 +12,7 @@ raw:
   cell_idx: 255 # index of the cell in the table
   cell_padding: 500 # padding around the cell skeleton bounding box
   cell_table_name: "aibs_metamodel_celltypes_v661" # name of the cell type table to query. Only default is tested!
-  cell_max_size: 50_000 # Max nm in one dimension
+  cell_max_size: 5_000 # Max nm in one dimension
   cell_keep_surrounding: False # Keep surrounding cells in the bounding box
 processing:
   dx : 100 # 20
@@ -20,8 +20,11 @@ processing:
     - "smooth iterations=1 radius=2"
     - "erode radius=1"
 meshing:
-  envelopsize : 8
+  envelopsize : 50 # 20-50% of dx
 
 
 # Run on ex3
 # snakemake --profile ex3 --configfile config_files/neuron.yml --use-conda --cores 20
+
+# Marius paper
+# mip = 2
