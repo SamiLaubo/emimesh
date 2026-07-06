@@ -12,3 +12,6 @@ zipped_surf
 .snakemake
 .vscode
 .cache
+
+# Local project
+config_files/single_neuron_processing/
