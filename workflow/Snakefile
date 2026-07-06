@@ -63,7 +63,7 @@ rule processImageData:
     input:
         rawdata=raw_data_path
     output:
-        #imagestatistic,
+        imagestatistic,
         outfile=processed_data_path,
     conda:
         "envs/environment.yml"
@@ -165,7 +165,7 @@ rule generateAnalysisPlot:
 
 rule labelMesh:
     input:
-        imagestatistic_path=imagestatistic,
+        imagestatistic_path=imagestatistic
     output:
         cell_type_mapping=cell_type_mapping
     conda:
