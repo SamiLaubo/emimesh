@@ -24,7 +24,7 @@ def download_webknossos(cloud_path, mip, pos, physical_size):
 def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox_surrounding=None):
     from cloudvolume import CloudVolume
     vol = CloudVolume(
-        cloud_path, use_https=True, parallel=8, progress=True, mip=mip, cache=True, bounded=True, fill_missing=True
+        cloud_path, use_https=True, parallel=8, progress=False, mip=mip, cache=True, bounded=True, fill_missing=True
     )
     print(f"data resolution: {vol.resolution}")
     if cell_id_bbox_surrounding is None:

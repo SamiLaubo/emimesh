@@ -27,6 +27,7 @@ meshing:
 
 # Run on ex3
 # snakemake --profile ex3 --configfile config_files/neuron.yml --use-conda --cores 20
+# srun --time=00-01:00:00 --nodes=1 --ntasks=1 --cpus-per-task=1 --partition=genoaxq,milanq,defq,fpgaq,dgx2q,hgx2q,slowq --pty bash
 
 # Marius paper
 # mip = 2
