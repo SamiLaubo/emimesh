@@ -4,7 +4,7 @@ raw:
   position : "0-0-0"
   # position : ""
   mip : 4
-  size : 5000
+  size : 50_000 # Size to download in nm. Max allowed size if cell type is defined.
 
   # Optionally, get one cell of specific type, generate bbox from skeleton.
   # This is choosen if cell_type is not None.
@@ -13,7 +13,6 @@ raw:
   cell_idx: 0 # index of the cell in the table
   cell_padding: 500 # padding around the cell skeleton bounding box
   cell_table_name: "aibs_metamodel_celltypes_v661" # name of the cell type table to query. Only default is tested!
-  cell_max_size: 100_000 # Max nm in one dimension
   cell_keep_surrounding: False # Keep surrounding cells in the bounding box
 processing:
   dx : 100 # 20

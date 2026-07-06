@@ -64,12 +64,6 @@ def main():
         default=100,
     )
     parser.add_argument(
-        "--cell_max_size",
-        help="max size of the cell bounding box in voxels (optional, default=1000)",
-        type=int,
-        default=1000,
-    )
-    parser.add_argument(
         "--cell_keep_surrounding",
         help="keep surrounding cells in the bounding box (optional, default=False)",
         type=str,
@@ -95,7 +89,7 @@ def main():
             cell_neuron_type=args.cell_neuron_type,
             idx=args.cell_idx,
             padding_voxels=args.cell_padding,
-            max_size_nm=args.cell_max_size,
+            max_size_nm=args.size,
             output=args.output
         )
 
