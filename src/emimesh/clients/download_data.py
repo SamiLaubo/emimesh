@@ -89,7 +89,7 @@ def main():
             cell_neuron_type=args.cell_neuron_type,
             idx=args.cell_idx,
             padding_voxels=args.cell_padding,
-            max_size_nm=args.size,
+            max_size_nm=int(args.size),
             output=args.output
         )
 
