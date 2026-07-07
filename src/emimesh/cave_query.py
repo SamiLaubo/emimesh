@@ -164,8 +164,8 @@ def get_valid_bbox(
 
     # res?
     bbox_skeleton = skeleton_bounding_box(cell_id, padding_voxels=padding_voxels)
-    print(f"Skeleton bounding box volume size (x,y,z): {bbox_skeleton.size3()} or {bbox_skeleton.size3() * np.array([4,4,40])} nm^3. Not used!")
-    print(bbox_skeleton)
+    # print(f"Skeleton bounding box volume size (x,y,z): {bbox_skeleton.size3()} or {bbox_skeleton.size3() * np.array([4,4,40])} nm^3. Not used!")
+    # print(bbox_skeleton)
 
     # Bbox max size around cell center
     # Org res (4,4,40) nm for minnie65
@@ -185,11 +185,11 @@ def get_valid_bbox(
 
     # Intersection of the three bounding boxes to ensure we stay within the segmentation data bounds
     # Print volume loss from intersection
-    # print("Starting from bbox from skeleton with volume size (x,y,z):", bbox_skeleton.size3())
-    # bbox = Bbox.intersection(bbox_skeleton, bbox_centered_max)
-    # print(f"Volume after intersection with centered max bbox: {bbox.size3()}")
-    bbox = bbox_centered_max
+    print("Starting from bbox from skeleton with volume size (x,y,z):", bbox_skeleton.size3())
+    bbox = Bbox.intersection(bbox_skeleton, bbox_centered_max)
     print(f"Volume after intersection with centered max bbox: {bbox.size3()}")
+    # bbox = bbox_centered_max
+    # print(f"Volume after intersection with centered max bbox: {bbox.size3()}")
     
     bbox = Bbox.intersection(bbox, bbox_seg)
     print(f"Final volume after intersection with segmentation bbox: {bbox.size3()}")
