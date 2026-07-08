@@ -8,7 +8,25 @@ from caveclient import CAVEclient
 from cloudvolume import CloudVolume, Bbox
 import urllib
 
-# All neuron types
+# All cell types
+# cell_type
+# 23P          19661
+# 4P           14730
+# 6P-IT        11641
+# 5P-IT         7904
+# astrocyte     7141
+# oligo         6902
+# 6P-CT         6762
+# BC            3320
+# MC            2440
+# microglia     2414
+# 5P-ET         2167
+# BPC           1484
+# OPC           1477
+# 5P-NP          958
+# pericyte       845
+# NGC            621
+
 
 
 def get_cell_type_table(table_name="aibs_metamodel_celltypes_v661"):
@@ -332,3 +350,13 @@ def get_cell_info(
     print(f'Final bounding box coordinates: {bbox.minpt} to {bbox.maxpt} in voxels.')
     
     return cell_id, bbox
+
+if __name__ == "__main__":
+    # Show count of neurons and non-neurons in the table
+    df = get_cell_type_table()
+    if df is not None:
+        # Print count of different cell types
+        print("Cell type counts:")
+        print(df['cell_type_basic'].value_counts())
+        print("Detailed cell type counts:")
+        print(df['cell_type'].value_counts())
