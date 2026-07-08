@@ -8,6 +8,9 @@ from caveclient import CAVEclient
 from cloudvolume import CloudVolume, Bbox
 import urllib
 
+# All neuron types
+
+
 def get_cell_type_table(table_name="aibs_metamodel_celltypes_v661"):
     """
     Query cell types using CAVEclient and add is_neuron column.
@@ -329,5 +332,3 @@ def get_cell_info(
     print(f'Final bounding box coordinates: {bbox.minpt} to {bbox.maxpt} in voxels.')
     
     return cell_id, bbox
-
-
