@@ -37,13 +37,11 @@ def download_cloudvolume(cloud_path, mip, pos, physical_size, cell_id_bbox_surro
         img = vol.download_point(pos, mip=mip, size=size).squeeze()
     
     else: # Download binary for one cell_id
+        # bbox comes from original resolution (4,4,40) nm
         cell_id, bbox, surrounding = cell_id_bbox_surrounding
 
-        # bbox = bbox.astype(np.int64)
-        # bbox comes from original resolution (4,4,40) nm
-        if surrounding:
+        if surrounding: # Download surrounding cells in the bounding box
             print(f"Downloading surrounding cells in the bounding box {bbox} for cell_id {cell_id}")
-            # Download surrounding cells in the bounding box
             img = vol.download(bbox, mip=mip, coord_resolution=(4,4,40)).squeeze()
         else: # Download binary for one cell_id
             print(f"Downloading binary for cell_id {cell_id} in the bounding box {bbox}")

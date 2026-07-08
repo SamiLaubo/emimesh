@@ -68,7 +68,6 @@ def main():
         help="keep surrounding cells in the bounding box (optional, default=False)",
         type=str,
         default="False",
-        # action=argparse.BooleanOptionalAction
     )
 
     args = parser.parse_args()
