@@ -13,9 +13,10 @@ processed_dir = "results/{name}/processed/"
 surf_dir = "results/{name}/surfaces/"
 mesh_dir = "results/{name}/meshes/"
 
-raw_data_path = raw_dir + "raw.vti"
+cleanup = config.get("cleanup", False)
+raw_data_path = temp(raw_dir + "raw.vti") if cleanup else raw_dir + "raw.vti"
+processed_data_path = temp(processed_dir + "processed.vti") if cleanup else processed_dir + "processed.vti"
 
-processed_data_path = processed_dir + "processed.vti"
 csgtree = surf_dir + "csgtree.json"
 cellsizeplot = processed_dir + "cellsizes.png"
 imagestatistic = processed_dir + "imagestatistic.yml"
