@@ -321,7 +321,7 @@ def get_cell_info(
         table_name="aibs_metamodel_celltypes_v661",
         cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300",
         cell_type="neuron", 
-        cell_neuron_type="",
+        cell_neuron_type=None,
         idx=0, 
         padding_voxels=100, 
         max_size_nm=100_000,
@@ -342,7 +342,7 @@ def get_cell_info(
         df.to_pickle(".cache/filtered_cell_table.pickle")
 
     # Extract one cell
-    if cell_neuron_type != "":
+    if cell_type == "neuron" and cell_neuron_type is not None:
         print(f"Filtering for specific neuron type: {cell_neuron_type}")
         cell_df = df[df['cell_type'] == cell_neuron_type]
     else:

@@ -49,7 +49,7 @@ def main():
         "--cell_neuron_type",
         help="specific neuron type to download (optional)",
         type=str,
-        default="",
+        default=None,
     )
     parser.add_argument(
         "--cell_idx",
