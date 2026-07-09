@@ -28,6 +28,30 @@ import urllib
 # NGC            621
 
 
+######################################################################
+### See: https://tutorial.microns-explorer.org/annotation-tables.html
+#
+# Cell Type	    Subclass	    Description
+# ---------------------------------------------------------------
+# 23P	        Excitatory	    Layer 2/3 cells
+# 4P	        Excitatory	    Layer 4 cells
+# 5P-IT	        Excitatory	    Layer 5 intratelencephalic cells
+# 5P-ET	        Excitatory	    Layer 5 extratelencephalic cells
+# 5P-NP	        Excitatory	    Layer 5 near-projecting cells
+# 6P-IT	        Excitatory	    Layer 6 intratelencephalic cells
+# 6P-CT	        Excitatory	    Layer 6 corticothalamic cells
+# BC	        Inhibitory	    Basket cell
+# BPC	        Inhibitory	    Bipolar cell.
+# MC	        Inhibitory	    Martinotti cell.
+#
+# OPC	        Non-neuronal	Oligodendrocyte precursor cell
+# astrocyte	    Non-neuronal	Astrocyte
+# microglia	    Non-neuronal	Microglia
+# pericyte	    Non-neuronal	Pericyte
+# oligo	        Non-neuronal	Oligodendrocyte
+######################################################################
+
+
 
 def get_cell_type_table(table_name="aibs_metamodel_celltypes_v661"):
     """
