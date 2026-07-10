@@ -44,7 +44,6 @@ def main():
         type=str,
         default=None,
     )
-
     parser.add_argument(
         "--cell_neuron_type",
         help="specific neuron type to download (optional)",
@@ -69,6 +68,12 @@ def main():
         type=str,
         default="False",
     )
+    parser.add_argument(
+        "--cell_point_type",
+        help="type of point to use for cell positioning (optional, default=soma)",
+        type=str,
+        default="soma",
+    )
 
     args = parser.parse_args()
 
@@ -89,7 +94,8 @@ def main():
             idx=args.cell_idx,
             padding_voxels=args.cell_padding,
             max_size_nm=int(args.size),
-            output=args.output
+            point_type=args.cell_point_type,
+            output=args.output,
         )
 
         img, res = download_cloudvolume(args.cloudpath, args.mip, None, None, cell_id_bbox_surrounding=(cell_id, bbox, args.cell_keep_surrounding.lower() == "true"))

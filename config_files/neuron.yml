@@ -2,7 +2,6 @@ name : "neuron_cleanup"
 raw:
   cloudpath: "precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
   position : "0-0-0"
-  # position : ""
   mip : 4
   size : 30_000 # Size to download in nm. Max allowed size if cell type is defined.
 

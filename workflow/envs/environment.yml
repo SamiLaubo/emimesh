@@ -19,4 +19,5 @@ dependencies:
       - cmocean
       - nbmorph
       - caveclient
+      - pcg_skel
       - -e ../..

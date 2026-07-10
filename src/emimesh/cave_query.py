@@ -191,6 +191,69 @@ def skeleton_bounding_box(cell_id, cloud_path="minnie65_public", padding_voxels=
     
     return bbox
 
+def get_skeleton_point(cell_id, point_type, cloud_path="minnie65_public"):
+    """
+    Find a specific point in the cell skeleton based on the point_type.
+    Point types: 'soma', 'branch', 'segment', 'end'.
+    Returns the coordinate in voxels.
+    """
+    client = CAVEclient(cloud_path)
+    skel_dict = client.skeleton.get_skeleton(cell_id, output_format='dict')
+    vertices = np.array(skel_dict["vertices"])
+    edges = np.array(skel_dict["edges"])
+    resolution = np.array(client.info.viewer_resolution())
+
+    print(f"Skeleton for cell_id {cell_id} has {len(vertices)} vertices and {len(edges)} edges. Getting point type '{point_type}'.")
+
+    if point_type == 'end':
+        # Furthest vertex from the root
+        root_pos = vertices[0]
+        dists = np.linalg.norm(vertices - root_pos, axis=1)
+        best_idx = np.argmax(dists)
+        point_nm = vertices[best_idx]
+
+    elif point_type == 'branch':
+        # Degree >= 3
+        deg = np.bincount(edges.flatten(), minlength=len(vertices))
+        branch_indices = np.where(deg >= 3)[0]
+        if branch_indices.size == 0:
+            point_nm = vertices[0]
+            print(f"No branch points found for cell_id {cell_id}. Using root position as fallback.")
+        else:
+            # Pick the branch point closest to the radius between the root and the furthest point
+            root_pos = vertices[0]
+            furthest_pos = vertices[np.argmax(np.linalg.norm(vertices - root_pos, axis=1))]
+            mid_radius = np.linalg.norm(furthest_pos - root_pos)
+
+            branch_vertices = vertices[branch_indices]
+
+            radiuses = np.linalg.norm(branch_vertices - root_pos, axis=1)
+            point_nm = branch_vertices[np.argmax(radiuses - mid_radius)]  # Closest to the mid radius
+            
+    elif point_type == 'segment':
+        # Degree == 2
+        deg = np.bincount(edges.flatten(), minlength=len(vertices))
+        segment_indices = np.where(deg <= 2)[0]
+        if segment_indices.size == 0:
+            point_nm = vertices[0]
+            print(f"No segment points found for cell_id {cell_id}. Using root position as fallback.")
+        else:
+            # Pick the segment point closest to the radius between the root and the furthest point
+            root_pos = vertices[0]
+            furthest_pos = vertices[np.argmax(np.linalg.norm(vertices - root_pos, axis=1))]
+            mid_radius = np.linalg.norm(furthest_pos - root_pos)
+            
+            segment_vertices = vertices[segment_indices]
+            
+            radiuses = np.linalg.norm(segment_vertices - root_pos, axis=1)
+            point_nm = segment_vertices[np.argmin(radiuses - mid_radius)]  # Closest to the mid radius
+
+    else: # 'soma' or default
+        point_nm = vertices[0]
+        print(f"{point_type} not implemented for cell_id {cell_id}. Using root position as soma point.")
+
+    return point_nm / resolution
+
 def get_valid_bbox(
         cell_id, 
         cell_center, 
@@ -320,11 +383,12 @@ def cell_url(x, y, z, cell_id, output_folder=None):
 def get_cell_info(
         table_name="aibs_metamodel_celltypes_v661",
         cloud_path="precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300",
-        cell_type="neuron", 
+        cell_type="neuron",
         cell_neuron_type=None,
-        idx=0, 
-        padding_voxels=100, 
+        idx=0,
+        padding_voxels=100,
         max_size_nm=100_000,
+        point_type="soma",
         output="data.xdmf"
     ):
     """
@@ -353,20 +417,26 @@ def get_cell_info(
 
     # Get info for one cell
     cell_id = cell_df["pt_root_id"].values[idx].astype(np.uint64)
-    cell_type = cell_df["cell_type"].values[idx]
+    _cell_type = cell_df["cell_type"].values[idx]
 
-    print(f"Cell ID: {cell_id} with type {cell_type} at index {idx} from table '{table_name}'.")
+    print(f"Cell ID: {cell_id} with type {_cell_type} at index {idx} from table '{table_name}'.")
     print(f"Cell position (pt_position): {cell_df['pt_position'].values[idx]}")
 
     # Print and save neuroglancer link for the cell
     x, y, z = cell_df['pt_position'].values[idx]
     cell_url(x, y, z, cell_id, Path(output).parent)
 
+    # Determine center based on point_type
+    if point_type == "soma" or cell_type != "neuron":
+        cell_center = cell_df["pt_position"].values[idx]
+    else:
+        cell_center = get_skeleton_point(cell_id, point_type)
+
     # bbox in (4,4,40) nm resolution
     bbox = get_valid_bbox(
-        cell_id, 
-        cell_df["pt_position"].values[idx], 
-        padding_voxels=padding_voxels, 
+        cell_id,
+        cell_center,
+        padding_voxels=padding_voxels,
         max_size_nm=max_size_nm,
         cloud_path=cloud_path
     )

@@ -1,28 +1,26 @@
-name : "neuron1_mip4_vol_50"
+name : "cells_cube_lowres/cells_cube_test_1"
 raw:
   cloudpath: "precomputed://gs://iarpa_microns/minnie/minnie65/seg_m1300"
-  position : "1-1-1"
-  # position : ""
+  position : "0-0-0"
   mip : 4
-  size : 5000
+  size : 30_000
 
   # Optionally, get one cell of specific type, generate bbox from skeleton.
   # This is choosen if cell_type is not None.
   cell_type: "neuron" # [neuron, astrocyte, microglia, oligo, pericyte, OPC] See cave_query.py
-  cell_idx: 255 # index of the cell in the table
-  cell_padding: 500 # padding around the cell skeleton bounding box
+  cell_idx: 0 # index of the cell in the table
+  cell_padding: 20 # padding around the cell skeleton bounding box
   cell_table_name: "aibs_metamodel_celltypes_v661" # name of the cell type table to query. Only default is tested!
-  cell_max_size: 50_000 # Max nm in one dimension
   cell_keep_surrounding: true # Keep surrounding cells in the bounding box
 processing:
-  dx : 100 # 20
+  dx : 200 # 20
   operation :
-    - "ncells ncells=2"
+    - "ncells ncells=5"
     # - "smooth iterations=1 radius=2"
     # - "erode radius=1"
-    # - "removeislands minsize=5000"    # Remove small noise
-    # - "dilate radius=1"               # Close small gaps
-    # - "smooth iterations=1 radius=1"  # Smooth boundaries
+    - "removeislands minsize=5000"    # Remove small noise
+    - "dilate radius=1"               # Close small gaps
+    - "smooth iterations=1 radius=1"  # Smooth boundaries
     - "erode radius=1"                # Create gaps between cells
 meshing:
-  envelopsize : 18
+  envelopsize : 100
